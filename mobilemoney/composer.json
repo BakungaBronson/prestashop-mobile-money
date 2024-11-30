@@ -14,9 +14,8 @@
         "preferred-install": "dist",
         "prepend-autoloader": false
     },
-    "type": "prestashop-module",
     "author": {
         "name": "YourName"
     },
-    "license": "AFL-3.0"
+    "license": "MIT"
 }
