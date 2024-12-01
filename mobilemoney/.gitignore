@@ -3,6 +3,7 @@ views/img/qr/*
 !views/img/qr/.gitkeep
 
 # General
-.DS_Store
+*.DS_Store
 .idea/
 *.log
+*.zip
