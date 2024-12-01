@@ -3,8 +3,8 @@
     "description": "Mobile Money payment module for PrestaShop",
     "authors": [
         {
-            "name": "Your Name",
-            "email": "your.email@example.com"
+            "name": "Bakunga Bronson",
+            "email": "bakungabro@gmail.com"
         }
     ],
     "require": {

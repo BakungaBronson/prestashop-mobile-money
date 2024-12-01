@@ -3,7 +3,8 @@
  * Validation controller for Mobile Money module
  */
 
-use PrestaShop\Module\MobileMoney\Exception\MobileMoneyException;
+require_once _PS_MODULE_DIR_ . 'mobilemoney/classes/PaymentValidator.php';
+
 use PrestaShop\Module\MobileMoney\PaymentValidator;
 
 class MobileMoneyValidationModuleFrontController extends ModuleFrontController
@@ -18,96 +19,54 @@ class MobileMoneyValidationModuleFrontController extends ModuleFrontController
 
             // Validate basic payment requirements
             if (!$validator->validatePayment($cart)) {
-                throw new MobileMoneyException('Payment validation failed: ' . implode(', ', $validator->getErrors()));
+                $errors = $validator->getErrors();
+                $this->errors = array_merge($this->errors, $errors);
+                $this->redirectWithNotifications($this->context->link->getPageLink('order', true, null, ['step' => 3]));
+                return;
             }
 
             // Get selected payment provider
-            $provider = Tools::getValue('payment_provider', 'mtn');
+            $provider = Tools::getValue('provider', 'mtn');
             if (!in_array($provider, ['mtn', 'airtel'])) {
-                throw new MobileMoneyException('Invalid payment provider selected');
+                $this->errors[] = $this->l('Invalid payment provider selected');
+                $this->redirectWithNotifications($this->context->link->getPageLink('order', true, null, ['step' => 3]));
+                return;
             }
 
-            // Validate QR code configuration
-            if (!$validator->validateQRCode($provider)) {
-                throw new MobileMoneyException('QR code validation failed: ' . implode(', ', $validator->getErrors()));
-            }
-
-            // Get customer and cart info
+            // Get customer info
             $customer = new Customer($cart->id_customer);
             if (!Validate::isLoadedObject($customer)) {
-                throw new MobileMoneyException('Could not load customer information');
+                $this->errors[] = $this->l('Could not load customer information');
+                $this->redirectWithNotifications($this->context->link->getPageLink('order', true, null, ['step' => 3]));
+                return;
             }
 
             $currency = new Currency($cart->id_currency);
-            if (!Validate::isLoadedObject($currency)) {
-                throw new MobileMoneyException('Could not load currency information');
-            }
-
             $total = (float)$cart->getOrderTotal(true, Cart::BOTH);
 
-            // Validate order creation parameters
-            $orderParams = [
-                'cart_id' => (int)$cart->id,
-                'order_status' => Configuration::get('MOBILEMONEY_OS_PENDING'),
-                'amount' => $total
-            ];
-
-            if (!$validator->validateOrderCreation($orderParams)) {
-                throw new MobileMoneyException('Order creation validation failed: ' . implode(', ', $validator->getErrors()));
-            }
-
-            // Create the order
+            // Create the pending order
             $this->module->validateOrder(
                 (int)$cart->id,
-                Configuration::get('MOBILEMONEY_OS_PENDING'),
+                Configuration::get('MOBILEMONEY_WAITING_PAYMENT'),
                 $total,
                 $this->module->displayName . ' (' . strtoupper($provider) . ')',
                 null,
-                [
-                    'transaction_id' => null,
-                    'payment_provider' => $provider
-                ],
+                array(),
                 (int)$currency->id,
                 false,
                 $customer->secure_key
             );
 
-            // Log successful payment initiation
-            $this->module->getLogger()->info('Payment initiated', [
-                'cart_id' => $cart->id,
-                'customer_id' => $customer->id,
-                'amount' => $total,
-                'provider' => $provider
-            ]);
+            Tools::redirect('index.php?controller=order-confirmation&id_cart='
+                .(int)$cart->id
+                .'&id_module='.(int)$this->module->id
+                .'&id_order='.$this->module->currentOrder
+                .'&key='.$customer->secure_key
+            );
 
-            // Redirect to order confirmation page
-            Tools::redirect($this->context->link->getPageLink(
-                'order-confirmation',
-                true,
-                null,
-                [
-                    'id_cart' => (int)$cart->id,
-                    'id_module' => (int)$this->module->id,
-                    'id_order' => $this->module->currentOrder,
-                    'key' => $customer->secure_key
-                ]
-            ));
-
-        } catch (MobileMoneyException $e) {
-            // Log the error
-            $this->module->getLogger()->error($e->getMessage(), [
-                'exception' => get_class($e),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
-            ]);
-
-            // Add error message for display
-            $this->errors[] = $this->module->l('An error occurred during payment validation: ') . $e->getMessage();
-            
-            // Redirect back to checkout
-            $this->redirectWithNotifications($this->context->link->getPageLink('order', true, null, [
-                'step' => 1
-            ]));
+        } catch (Exception $e) {
+            $this->errors[] = $this->l('An error occurred during payment validation: ') . $e->getMessage();
+            $this->redirectWithNotifications($this->context->link->getPageLink('order', true, null, ['step' => 3]));
         }
     }
 }
