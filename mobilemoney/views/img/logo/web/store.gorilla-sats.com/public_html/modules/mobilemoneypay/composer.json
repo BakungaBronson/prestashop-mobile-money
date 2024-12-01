@@ -1,5 +1,5 @@
 {
-    "name": "prestashop/mobilemoney",
+    "name": "prestashop/mobilemoneypay",
     "description": "Mobile Money payment module for PrestaShop",
     "authors": [
         {
@@ -14,5 +14,10 @@
         "preferred-install": "dist",
         "prepend-autoloader": false
     },
-    "type": "prestashop-module"
+    "type": "prestashop-module",
+    "autoload": {
+        "psr-4": {
+            "PrestaShop\\Module\\MobileMoneyPay\\": "src/"
+        }
+    }
 }
