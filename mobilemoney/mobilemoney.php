@@ -13,7 +13,7 @@ class Mobilemoney extends PaymentModule
         $this->name = 'mobilemoney';
         $this->tab = 'payments_gateways';
         $this->version = '1.0.0';
-        $this->author = 'Your Name';
+        $this->author = 'Bakunga Bronson';
         $this->need_instance = 1;
         $this->ps_versions_compliancy = array('min' => '1.7', 'max' => _PS_VERSION_);
         $this->bootstrap = true;
@@ -99,11 +99,21 @@ class Mobilemoney extends PaymentModule
             return;
         }
 
-        $pendingStatus = Configuration::get('MOBILEMONEY_WAITING_PAYMENT');
-        $currentState = $order->getCurrentState();
+        // Get all valid pending states
+        $validStates = [
+            Configuration::get('MOBILEMONEY_WAITING_PAYMENT'),
+            Configuration::get('PS_OS_PREPARATION'),  // Backorder state
+            Configuration::get('PS_OS_PENDING')       // General pending state
+        ];
 
+        $currentState = $order->getCurrentState();
+        
+        // Debug logging
+        PrestaShopLogger::addLog('Mobile Money - Current State: ' . $currentState, 1);
+        PrestaShopLogger::addLog('Mobile Money - Valid States: ' . print_r($validStates, true), 1);
+        
         $this->smarty->assign([
-            'status' => ($currentState == $pendingStatus) ? 'ok' : 'failed',
+            'status' => (in_array($currentState, $validStates)) ? 'ok' : 'failed',
             'shop_name' => $this->context->shop->name,
             'reference' => $order->reference,
             'contact_url' => $this->context->link->getPageLink('contact', true)
@@ -130,10 +140,6 @@ class Mobilemoney extends PaymentModule
         
         if ($orderState->add()) {
             Configuration::updateValue('MOBILEMONEY_WAITING_PAYMENT', $orderState->id);
-            // Copy template icon
-            $source = _PS_MODULE_DIR_.$this->name.'/views/img/orderstate.gif';
-            $destination = _PS_ORDER_STATE_IMG_DIR_.$orderState->id.'.gif';
-            copy($source, $destination);
         }
     }
 
