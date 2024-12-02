@@ -44,14 +44,17 @@ class MobileMoneyValidationModuleFrontController extends ModuleFrontController
             $currency = new Currency($cart->id_currency);
             $total = (float)$cart->getOrderTotal(true, Cart::BOTH);
 
-            // Create the pending order
+            // Create the order with our custom state
             $this->module->validateOrder(
                 (int)$cart->id,
                 Configuration::get('MOBILEMONEY_WAITING_PAYMENT'),
                 $total,
                 $this->module->displayName . ' (' . strtoupper($provider) . ')',
                 null,
-                array(),
+                array(
+                    'transaction_id' => null,
+                    'payment_provider' => $provider
+                ),
                 (int)$currency->id,
                 false,
                 $customer->secure_key
@@ -65,6 +68,7 @@ class MobileMoneyValidationModuleFrontController extends ModuleFrontController
             );
 
         } catch (Exception $e) {
+            PrestaShopLogger::addLog('Mobile Money - Payment Error: ' . $e->getMessage(), 3);
             $this->errors[] = $this->l('An error occurred during payment validation: ') . $e->getMessage();
             $this->redirectWithNotifications($this->context->link->getPageLink('order', true, null, ['step' => 3]));
         }
